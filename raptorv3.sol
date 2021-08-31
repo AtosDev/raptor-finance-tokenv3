@@ -344,7 +344,7 @@ contract FarmableToken is Owned, masterChefStuff {
 		return allowances[owner][spender];
 	}
 	
-	function receiveApproval(address from, uint256 tokens, address token, bytes memory data) {
+	function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public {
 		require(msg.sender == address(oldRaptor), "Only for migration");
 		require(swapEnabled, "Swap disabled");
 		uint256 balanceBeforeTransfer = oldRaptor.balanceOf(address(this));
