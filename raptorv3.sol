@@ -255,7 +255,7 @@ contract masterChefStuff is Owned {
 	}
 }
 
-contract FarmableToken is Owned, masterChefStuff {
+contract RaptorV3 is Owned, masterChefStuff {
 	using SafeMath for uint256;
 	uint256 public _totalSupply;
 	string public name;
@@ -268,7 +268,6 @@ contract FarmableToken is Owned, masterChefStuff {
 	event EnabledSwapToNew();
 	event DisabledSwapToNew();
 	ERC20Interface public oldRaptor;
-	bool public swapEnabled = true;
 	
 	constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 initialSupply, ERC20Interface _oldRaptor) {
 		name = _name;
@@ -279,24 +278,16 @@ contract FarmableToken is Owned, masterChefStuff {
 		oldRaptor = _oldRaptor;
 	}
 	
-	function enableSwap() public onlyOwner {
-		swapEnabled = true;
-		emit EnabledSwapToNew();
-	}
-	
-	function disableSwap() public onlyOwner {
-		swapEnabled = false;
-		emit DisabledSwapToNew();
+	function _swapToNewRaptor(uint256 tokens, address from) internal {
+		oldRaptor.transferFrom(from, address(this), tokens);
+		uint256 _tokens = tokens.mul(1000); // decimals will fix stuff
+		balances[from] = balances[from].add(_tokens);
+		_totalSupply = _totalSupply.add(_tokens);
+		emit Transfer(address(0), from, _tokens);
 	}
 	
 	function swapToNewRaptor(uint256 tokens) public {
-		require(swapEnabled, "Swap disabled");
-		uint256 balanceBeforeTransfer = oldRaptor.balanceOf(address(this));
-		oldRaptor.transferFrom(msg.sender, address(this), tokens);
-		uint256 receivedAmount = oldRaptor.balanceOf(address(this)).sub(balanceBeforeTransfer);
-		balances[msg.sender] = balances[msg.sender].add(receivedAmount);
-		_totalSupply = _totalSupply.add(receivedAmount);
-		emit Transfer(address(0), msg.sender, receivedAmount);
+		_swapToNewRaptor(tokens, msg.sender);
 	}
 	
 	function mintTo(address to, uint256 tokens) public onlyMasterChef {
@@ -346,13 +337,7 @@ contract FarmableToken is Owned, masterChefStuff {
 	
 	function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public {
 		require(msg.sender == address(oldRaptor), "Only for migration");
-		require(swapEnabled, "Swap disabled");
-		uint256 balanceBeforeTransfer = oldRaptor.balanceOf(address(this));
-		oldRaptor.transferFrom(from, address(this), tokens);
-		uint256 receivedAmount = oldRaptor.balanceOf(address(this)).sub(balanceBeforeTransfer);
-		balances[from] = balances[from].add(receivedAmount);
-		_totalSupply = _totalSupply.add(receivedAmount);
-		emit Transfer(address(0), from, receivedAmount);
+		_swapToNewRaptor(tokens, from);
 	}
 	
     function approveAndCall(address spender, uint tokens, bytes memory data) public returns (bool success) {
